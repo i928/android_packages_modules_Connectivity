@@ -474,8 +474,24 @@ public class BpfNetMaps {
      NetworkStackUtils.isAtLeast25Q2 when it is moved to a static lib.
      */
     public static boolean isAtLeast25Q2() {
-        return SdkLevel.isAtLeastB()  || (SdkLevel.isAtLeastV()
-                && "Baklava".equals(Build.VERSION.CODENAME));
+        return (SdkLevel.isAtLeastB()  || (SdkLevel.isAtLeastV()
+                && "Baklava".equals(Build.VERSION.CODENAME)))
+                && hasLocalNetMaps();
+    }
+
+    /*
+     * The 25Q2 local network access maps are LPM_TRIE maps, which netbpfload skips on
+     * kernels older than 4.14 (crosshatch msm-4.9). Without them the 25Q2 local network
+     * features stay off instead of crashing system_server ("Cannot open local_net_access
+     * map"). Evolution-X makes isAtLeast25Q2() always false for the same reason.
+     */
+    private static volatile Boolean sHasLocalNetMaps;
+
+    private static boolean hasLocalNetMaps() {
+        if (sHasLocalNetMaps == null) {
+            sHasLocalNetMaps = new java.io.File(LOCAL_NET_ACCESS_MAP_PATH).exists();
+        }
+        return sHasLocalNetMaps;
     }
 
     private void removeRule(final int uid, final long match, final String caller) {
