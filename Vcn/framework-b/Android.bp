@@ -93,7 +93,7 @@ framework_connectivity_b_defaults_soong_config {
     ],
     soong_config_variables: {
         is_vcn_in_mainline: {
-            min_sdk_version: "36",
+            min_sdk_version: "35",
             static_libs: ["android.net.vcn.flags-aconfig-java"],
             apex_available: ["com.android.tethering"],
 
