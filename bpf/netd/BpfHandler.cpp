@@ -88,7 +88,8 @@ static Status initPrograms(const char* cg2_path) {
 
     // U bumps the kernel requirement up to 4.14
     if (isAtLeastU && !isAtLeastKernelVersion(4, 14)) {
-        return Status("U+ platform with kernel version < 4.14.0 is unsupported");
+        // legacy-kernel: warn and attach what the kernel supports (4.9: ingress/egress only).
+        ALOGW("U+ platform with kernel version < 4.14.0 is unsupported; attaching the supported programs anyway");
     }
 
     // U mandates this mount point (though it should also be the case on T)
@@ -98,12 +99,14 @@ static Status initPrograms(const char* cg2_path) {
 
     // V bumps the kernel requirement up to 4.19
     if (isAtLeastV && !isAtLeastKernelVersion(4, 19)) {
-        return Status("V+ platform with kernel version < 4.19.0 is unsupported");
+        // legacy-kernel: warn and attach what the kernel supports (4.9: ingress/egress only).
+        ALOGW("V+ platform with kernel version < 4.19.0 is unsupported; attaching the supported programs anyway");
     }
 
     // 25Q2 bumps the kernel requirement up to 5.4
     if (isAtLeast25Q2 && !isAtLeastKernelVersion(5, 4)) {
-        return Status("25Q2+ platform with kernel version < 5.4.0 is unsupported");
+        // legacy-kernel: warn and attach what the kernel supports (4.9: ingress/egress only).
+        ALOGW("25Q2+ platform with kernel version < 5.4.0 is unsupported; attaching the supported programs anyway");
     }
 
     unique_fd cg_fd(open(cg2_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
