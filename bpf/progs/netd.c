@@ -133,6 +133,14 @@ DEFINE_BPF_MAP_EXT(local_net_blocked_uid_map, HASH, uint32_t, bool, -1000,
 #define DEFINE_NETD_BPF_PROG(TYPE, NAME, VER) \
     DEFINE_NETD_BPF_PROG_KVER(TYPE, NAME, VER, 4_9)
 
+// legacy-kernel: optional variants for kernels older than the release supports
+// (crosshatch msm-4.9). OPTIONAL, so a verifier rejection skips the program instead
+// of failing netbpfload.
+#define DEFINE_NETD_LEGACY_BPF_PROG_KVER_RANGE(TYPE, NAME, VER, minKV, maxKV)            \
+    DEFINE_BPF_PROG_EXT(TYPE, NAME, VER, AID_ROOT, AID_ROOT, minKV, maxKV,               \
+                        BPFLOADER_MIN_VER, BPFLOADER_MAX_VER, OPTIONAL,                  \
+                        "netd_readonly", DEFAULT_BPF_PIN_SUBDIR)
+
 #define DEFINE_NETD_V_BPF_PROG_KVER(TYPE, NAME, VER, minKV)                         \
     DEFINE_BPF_PROG_EXT(TYPE, NAME, VER, AID_ROOT, AID_ROOT, minKV, INF,            \
                         BPFLOADER_MAINLINE_V_VERSION, BPFLOADER_MAX_VER, MANDATORY, \
@@ -812,6 +820,11 @@ DEFINE_NETD_BPF_PROG_KVER_RANGE(cgroupsock, inet_create, 4_14, 4_14, 5_10)
     return inet_socket_create(sk, KVER_4_14);
 }
 
+DEFINE_NETD_LEGACY_BPF_PROG_KVER_RANGE(cgroupsock, inet_create, 4_9, 4_9, 4_14)
+(struct bpf_sock* sk) {
+    return inet_socket_create(sk, KVER_4_9);
+}
+
 DEFINE_NETD_BPF_PROG_KVER(cgroupsockrelease, inet_release, , 5_10)
 (struct bpf_sock* sk) {
     uint64_t cookie = bpf_get_sk_cookie(sk);
@@ -870,7 +883,17 @@ DEFINE_NETD_BPF_PROG_KVER(bind4, inet4_bind, , 4_19)
     return block_port(ctx);
 }
 
+DEFINE_NETD_LEGACY_BPF_PROG_KVER_RANGE(bind4, inet4_bind, 4_9, 4_9, 4_19)
+(struct bpf_sock_addr *ctx) {
+    return block_port(ctx);
+}
+
 DEFINE_NETD_BPF_PROG_KVER(bind6, inet6_bind, , 4_19)
+(struct bpf_sock_addr *ctx) {
+    return block_port(ctx);
+}
+
+DEFINE_NETD_LEGACY_BPF_PROG_KVER_RANGE(bind6, inet6_bind, 4_9, 4_9, 4_19)
 (struct bpf_sock_addr *ctx) {
     return block_port(ctx);
 }

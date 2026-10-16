@@ -24,6 +24,7 @@
 #include <android-base/unique_fd.h>
 #include <bpf/WaitForProgsLoaded.h>
 #include <log/log.h>
+#include <unistd.h>
 #include <netdutils/UidConstants.h>
 #include <private/android_filesystem_config.h>
 
@@ -54,6 +55,11 @@ constexpr int TOTAL_UID_STATS_ENTRIES_LIMIT = STATS_MAP_SIZE * 0.9;
 
 static_assert(STATS_MAP_SIZE - TOTAL_UID_STATS_ENTRIES_LIMIT > 100,
               "The limit for stats map is to high, stats data may be lost due to overflow");
+
+// legacy-kernel: true when netbpfload pinned the program (optional variants may be absent).
+static bool isProgramPinned(const char* programPath) {
+    return access(programPath, F_OK) == 0;
+}
 
 static Status attachProgramToCgroup(const char* programPath, const unique_fd& cgroupFd,
                                     bpf_attach_type type) {
@@ -124,7 +130,8 @@ static Status initPrograms(const char* cg2_path) {
     // cgroup if the program is pinned properly.
     // TODO: delete the if statement once all devices should support cgroup
     // socket filter (ie. the minimum kernel version required is 4.14).
-    if (isAtLeastKernelVersion(4, 14)) {
+    // legacy-kernel: on older kernels netbpfload may have loaded the optional variant.
+    if (isAtLeastKernelVersion(4, 14) || isProgramPinned(CGROUP_INET_CREATE_PROG_PATH)) {
         RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_INET_CREATE_PROG_PATH,
                                     cg_fd, BPF_CGROUP_INET_SOCK_CREATE));
     }
@@ -160,12 +167,25 @@ static Status initPrograms(const char* cg2_path) {
         }
     }
 
+    // legacy-kernel: the bind hooks also exist on older kernels with the backports;
+    // attach whichever optional variant netbpfload managed to load.
     if (isAtLeastKernelVersion(4, 19)) {
         RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND4_PROG_PATH,
                 cg_fd, BPF_CGROUP_INET4_BIND));
         RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND6_PROG_PATH,
                 cg_fd, BPF_CGROUP_INET6_BIND));
+    } else {
+        if (isProgramPinned(CGROUP_BIND4_PROG_PATH)) {
+            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND4_PROG_PATH,
+                    cg_fd, BPF_CGROUP_INET4_BIND));
+        }
+        if (isProgramPinned(CGROUP_BIND6_PROG_PATH)) {
+            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND6_PROG_PATH,
+                    cg_fd, BPF_CGROUP_INET6_BIND));
+        }
+    }
 
+    if (isAtLeastKernelVersion(4, 19)) {
         // This should trivially pass, since we just attached up above,
         // but BPF_PROG_QUERY is only implemented on 4.19+ kernels.
         if (queryProgram(cg_fd, BPF_CGROUP_INET_EGRESS) <= 0) abort();
